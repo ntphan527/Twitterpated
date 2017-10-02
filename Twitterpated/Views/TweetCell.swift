@@ -25,6 +25,9 @@ class TweetCell: UITableViewCell {
     @IBOutlet weak var retweetButton: UIButton!
     @IBOutlet weak var favoritedButton: UIButton!
     
+    var handleOnReply: (() -> ())?
+    var handleOnReTweet: (() -> ())?
+    var handleOnFavorite: (() -> ())?
     
     override func awakeFromNib() {
         super.awakeFromNib()
@@ -32,12 +35,15 @@ class TweetCell: UITableViewCell {
     }
     
     @IBAction func onReply(_ sender: Any) {
+        handleOnReply?()
     }
     
     @IBAction func onReTweet(_ sender: Any) {
+        handleOnReTweet?()
     }
     
     @IBAction func onFavorite(_ sender: Any) {
+        handleOnFavorite?()
     }
     
     override func setSelected(_ selected: Bool, animated: Bool) {

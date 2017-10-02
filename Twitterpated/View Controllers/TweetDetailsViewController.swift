@@ -18,10 +18,18 @@ class TweetDetailsViewController: UIViewController {
     @IBOutlet weak var userNameLabel: UILabel!
     @IBOutlet weak var screenNameLabel: UILabel!
     @IBOutlet weak var statusLabel: UILabel!
+    @IBOutlet weak var retweetCount: UILabel!
+    @IBOutlet weak var favoriteCount: UILabel!
+    
+    @IBOutlet weak var replyImageButton: UIButton!
+    @IBOutlet weak var retweetButton: UIButton!
+    @IBOutlet weak var favoriteButton: UIButton!
+    @IBOutlet weak var dateLabel: UILabel!
     
     var tweet: Tweet!
     var replyButton: UIBarButtonItem!
     weak var newTweetDelegate: NewTweetViewControllerDelegate?
+    var handleTweetUpdate: ((Tweet) -> ())?
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -43,6 +51,24 @@ class TweetDetailsViewController: UIViewController {
                 profileImageView.clipsToBounds = true
             }
             statusLabel.text = tweet.text
+            retweetCount.text = String(tweet.retweetCount)
+            favoriteCount.text = String(tweet.favoriteCount)
+            
+            if let date = tweet.timeStamp {
+                dateLabel.text = date.dateTimeDisplay()
+            }
+            
+            if tweet.favorited > 0 {
+                favoriteButton.alpha = 1.0
+            } else {
+                favoriteButton.alpha = 0.4
+            }
+            
+            if tweet.retweeted > 0 {
+                retweetButton.alpha = 1.0
+            } else {
+                retweetButton.alpha = 0.4
+            }
             
             if let retweetUser = tweet.retweetedStatus?.user?.screenName {
                 retweetUserLabel.text = retweetUser
@@ -68,20 +94,47 @@ class TweetDetailsViewController: UIViewController {
         }
     }
     
-    override func didReceiveMemoryWarning() {
-        super.didReceiveMemoryWarning()
-        // Dispose of any resources that can be recreated.
+    @IBAction func onReplyImage(_ sender: Any) {
+        onReply()
     }
     
-
-    /*
-    // MARK: - Navigation
-
-    // In a storyboard-based application, you will often want to do a little preparation before navigation
-    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-        // Get the new view controller using segue.destinationViewController.
-        // Pass the selected object to the new view controller.
+    @IBAction func onRetweet(_ sender: Any) {
+        if tweet.retweeted > 0 {
+            return
+        }
+        
+        TwitterClient.sharedInstance.retweet(id: tweet.id!, success: { (tweet: Tweet) in
+            self.tweet.retweetCount = tweet.retweetCount
+            self.tweet.retweeted = tweet.retweeted
+            self.retweetButton.alpha = 1.0
+            self.retweetCount.text = String(tweet.retweetCount)
+            self.handleTweetUpdate?(self.tweet)
+        }) { (error: Error) in
+            print("errors on retweet: \(error.localizedDescription)")
+        }
     }
-    */
-
+    
+    @IBAction func onFavorite(_ sender: Any) {
+        if tweet.favorited > 0 {
+            TwitterClient.sharedInstance.unfavorite(id: tweet.id!, success: { (tweet: Tweet) in
+                self.tweet.favoriteCount = tweet.favoriteCount
+                self.tweet.favorited = tweet.favorited
+                self.favoriteButton.alpha = 0.4
+                self.favoriteCount.text = String(tweet.favoriteCount)
+                self.handleTweetUpdate?(self.tweet)
+            }) { (error: Error) in
+                print("errors on favorite: \(error.localizedDescription)")
+            }
+        } else {
+            TwitterClient.sharedInstance.favorite(id: tweet.id!, success: { (tweet: Tweet) in
+                self.tweet.favoriteCount = tweet.favoriteCount
+                self.tweet.favorited = tweet.favorited
+                self.favoriteButton.alpha = 1.0
+                self.favoriteCount.text = String(tweet.favoriteCount)
+                self.handleTweetUpdate?(self.tweet)
+            }) { (error: Error) in
+                print("errors on favorite: \(error.localizedDescription)")
+            }
+        }
+    }
 }

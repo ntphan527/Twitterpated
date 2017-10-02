@@ -60,17 +60,17 @@ class TwitterClient: BDBOAuth1SessionManager {
     
     static var lastTweetId = ""
     func homeTimeLine(lastId: String?, success: @escaping ([Tweet]) -> (), failure: @escaping (Error) -> ()) {
-        var params: [String: Any?]!
+        var params = ["exclude_replies": "false"]
         if lastId != nil && TwitterClient.lastTweetId != lastId {
             TwitterClient.lastTweetId = lastId!
-            params = ["max_id": lastId]
+            params["max_id"] = lastId
         }
         get("1.1/statuses/home_timeline.json", parameters: params, progress: nil, success: { (task: URLSessionDataTask, response: Any?) in
             let dictionaries = response as! [NSDictionary]
-//            for dictionary in dictionaries {
-//                print(dictionary)
-//                print()
-//            }
+            for dictionary in dictionaries {
+                print(dictionary)
+                print()
+            }
             
             let tweets = Tweet.tweetsWithArray(dictionaries: dictionaries)
             success(tweets)
@@ -104,6 +104,57 @@ class TwitterClient: BDBOAuth1SessionManager {
         }
         
         post("1.1/statuses/update.json", parameters: params, progress: nil, success: { (task: URLSessionDataTask, response: Any?) in
+            if let dictionary = response as? NSDictionary {
+                let tweet = Tweet(dictionary: dictionary)
+                success(tweet)
+            }
+        }) { (task: URLSessionDataTask?, error: Error) in
+            print(error.localizedDescription)
+            failure(error)
+        }
+    }
+    
+    func favorite(id: String, success: @escaping (Tweet) -> (), failure: @escaping (Error) -> ()) {
+        if id.isEmpty {
+            return
+        }
+        
+        let params = ["id": id]
+        post("1.1/favorites/create.json", parameters: params, progress: nil, success: { (task: URLSessionDataTask, response: Any?) in
+            if let dictionary = response as? NSDictionary {
+                let tweet = Tweet(dictionary: dictionary)
+                success(tweet)
+            }
+        }) { (task: URLSessionDataTask?, error: Error) in
+            print(error.localizedDescription)
+            failure(error)
+        }
+    }
+    
+    func unfavorite(id: String, success: @escaping (Tweet) -> (), failure: @escaping (Error) -> ()) {
+        if id.isEmpty {
+            return
+        }
+        
+        let params = ["id": id]
+        post("1.1/favorites/destroy.json", parameters: params, progress: nil, success: { (task: URLSessionDataTask, response: Any?) in
+            if let dictionary = response as? NSDictionary {
+                let tweet = Tweet(dictionary: dictionary)
+                success(tweet)
+            }
+        }) { (task: URLSessionDataTask?, error: Error) in
+            print(error.localizedDescription)
+            failure(error)
+        }
+    }
+    
+    func retweet(id: String, success: @escaping (Tweet) -> (), failure: @escaping (Error) -> ()) {
+        if id.isEmpty {
+            return
+        }
+        
+        let params = ["id": id]
+        post("1.1/statuses/retweet/\(id).json", parameters: params, progress: nil, success: { (task: URLSessionDataTask, response: Any?) in
             if let dictionary = response as? NSDictionary {
                 let tweet = Tweet(dictionary: dictionary)
                 success(tweet)

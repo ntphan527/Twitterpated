@@ -63,17 +63,21 @@ class TweetsViewController: UIViewController {
                 self.loadingMoreView!.stopAnimating()
             } else {
                 if let refreshControl = refreshControl {
+                    self.tweets = tweets
                     refreshControl.endRefreshing()
                 } else {
                     MBProgressHUD.hide(for: self.view, animated: true)
                 }
             }
             print("gettweets works")
-            for tweet in tweets {
-                if tweet.id != TwitterClient.lastTweetId {
-                    self.tweets.append(tweet)
+            if refreshControl == nil {
+                for tweet in tweets {
+                    if tweet.id != TwitterClient.lastTweetId {
+                        self.tweets.append(tweet)
+                    }
                 }
             }
+            
             self.tweetsTableView.reloadData()
         }, failure: { (error: Error) in
             print(error.localizedDescription)
@@ -107,6 +111,15 @@ class TweetsViewController: UIViewController {
                 if let indexPath = tweetsTableView.indexPath(for: tweetCell) {
                     tweetDetailsVC.tweet = tweets[indexPath.row]
                     tweetDetailsVC.newTweetDelegate = self
+                    tweetDetailsVC.handleTweetUpdate = {(tweet: Tweet) -> () in
+                        for (index, element) in self.tweets.enumerated() {
+                            if element.id == tweet.id {
+                                self.tweets[index] = tweet
+                                //self.tweetsTableView.reloadData()
+                                self.tweetsTableView.reloadRows(at: [indexPath], with: UITableViewRowAnimation.automatic)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -117,7 +130,7 @@ class TweetsViewController: UIViewController {
 extension TweetsViewController: NewTweetViewControllerDelegate {
     func newTweet(newTweet: NewTweetViewController, tweet: Tweet) {
         tweets.insert(tweet, at: 0)
-        tweetsTableView.reloadData()
+        self.tweetsTableView.reloadData()
     }
 }
 
@@ -178,6 +191,10 @@ extension TweetsViewController: UITableViewDelegate, UITableViewDataSource {
         cell.statusLabel.text = tweet.text
         cell.userNameLabel.text = user?.name
         
+        if let date = tweet.timeStamp {
+            cell.timeLabel.text = date.timeAgoDisplay()
+        }
+        
         if let userScreenName = user?.screenName {
             cell.userScreenNameLabel.text = "@" + userScreenName
         }
@@ -196,10 +213,103 @@ extension TweetsViewController: UITableViewDelegate, UITableViewDataSource {
             ImageUtil.loadImage(imageUrl: profileImage, loadImageView: cell.profileImageView)
         }
         
+        cell.handleOnReTweet = {
+            if tweet.retweeted > 0 {
+                return
+            }
+            
+            TwitterClient.sharedInstance.retweet(id: tweet.id!, success: { (tweetResponse: Tweet) in
+                tweet.retweetCount = tweetResponse.retweetCount
+                tweet.retweeted = tweetResponse.retweeted
+                self.tweetsTableView.reloadRows(at: [indexPath], with: UITableViewRowAnimation.automatic)
+            }) { (error: Error) in
+                print("errors on retweet: \(error.localizedDescription)")
+            }
+        }
+        
+        cell.handleOnFavorite = {
+            if tweet.favorited > 0 {
+                TwitterClient.sharedInstance.unfavorite(id: tweet.id!, success: { (tweetResponse: Tweet) in
+                    tweet.favoriteCount = tweetResponse.favoriteCount
+                    tweet.favorited = tweetResponse.favorited
+                    self.tweetsTableView.reloadRows(at: [indexPath], with: UITableViewRowAnimation.automatic)
+                }) { (error: Error) in
+                    print("errors on favorite: \(error.localizedDescription)")
+                }
+            } else {
+                TwitterClient.sharedInstance.favorite(id: tweet.id!, success: { (tweetResponse: Tweet) in
+                    tweet.favoriteCount = tweetResponse.favoriteCount
+                    tweet.favorited = tweetResponse.favorited
+                    self.tweetsTableView.reloadRows(at: [indexPath], with: UITableViewRowAnimation.automatic)
+                }) { (error: Error) in
+                    print("errors on favorite: \(error.localizedDescription)")
+                }
+            }
+        }
+        
+        cell.handleOnReply = {
+            let mainStoryboard = UIStoryboard(name: "Main", bundle: nil)
+            if let newTweetNC = mainStoryboard.instantiateViewController(withIdentifier: "NewTweetNavigationController") as? UINavigationController {
+                if let newTweetVC = newTweetNC.topViewController as? NewTweetViewController {
+                    newTweetVC.replyTo = tweet
+                    newTweetVC.delegate = self
+                    self.present(newTweetNC, animated: true, completion: nil)
+                }
+            }
+        }
+        
         return cell
     }
     
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
+    }
+}
+
+extension Date {
+    func timeAgoDisplay() -> String {
+        
+        let calendar = Calendar.current
+        let minuteAgo = calendar.date(byAdding: .minute, value: -1, to: Date())!
+        let hourAgo = calendar.date(byAdding: .hour, value: -1, to: Date())!
+        let dayAgo = calendar.date(byAdding: .day, value: -1, to: Date())!
+//        let weekAgo = calendar.date(byAdding: .day, value: -7, to: Date())!
+        
+        if minuteAgo < self {
+            let diff = Calendar.current.dateComponents([.second], from: self, to: Date()).second ?? 0
+            return "\(diff)s"
+        } else if hourAgo < self {
+            let diff = Calendar.current.dateComponents([.minute], from: self, to: Date()).minute ?? 0
+            return "\(diff)m"
+        } else if dayAgo < self {
+            let diff = Calendar.current.dateComponents([.hour], from: self, to: Date()).hour ?? 0
+            return "\(diff)h"
+        }
+//        else if weekAgo < self {
+//            let diff = Calendar.current.dateComponents([.day], from: self, to: Date()).day ?? 0
+//            return "\(diff)d"
+//        }
+        
+        return dateOnlyDisplay()
+        //        let diff = Calendar.current.dateComponents([.weekOfYear], from: self, to: Date()).weekOfYear ?? 0
+        //        return "\(diff) weeks ago"
+    }
+    
+    func dateTimeDisplay() -> String {
+        let dateFormatter = DateFormatter()
+        //        dateFormatter.dateFormat = "EEE, MMM d, yyyy - h:mm a"
+        dateFormatter.dateFormat = "MM/dd/yy, h:mm a"
+        dateFormatter.timeZone = TimeZone.current
+        let timeStamp = dateFormatter.string(from: self)
+        return timeStamp
+    }
+    
+    func dateOnlyDisplay() -> String {
+        let dateFormatter = DateFormatter()
+        //        dateFormatter.dateFormat = "EEE, MMM d, yyyy - h:mm a"
+        dateFormatter.dateFormat = "MM/dd/yy"
+        dateFormatter.timeZone = TimeZone.current
+        let timeStamp = dateFormatter.string(from: self)
+        return timeStamp
     }
 }

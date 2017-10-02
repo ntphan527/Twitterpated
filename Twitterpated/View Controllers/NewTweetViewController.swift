@@ -21,6 +21,8 @@ class NewTweetViewController: UIViewController {
     
     var replyTo: Tweet?
     weak var delegate: NewTweetViewControllerDelegate?
+    var limitLabel: UILabel!
+    var limit = 140
     
     @IBAction func onCancel(_ sender: Any) {
         dismiss(animated: true, completion: nil)
@@ -38,6 +40,11 @@ class NewTweetViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
+        limitLabel = UILabel()
+        limitLabel.text = String(limit)
+        let limitBarButtonItem = UIBarButtonItem(customView: limitLabel)
+        self.navigationItem.rightBarButtonItems?.append(limitBarButtonItem)
+        
         if let user =  User.currentUser {
             usernameLabel.text = user.name
             screennameLabel.text = user.screenName
@@ -46,22 +53,22 @@ class NewTweetViewController: UIViewController {
             }
             tweetTextView.becomeFirstResponder()
         }
+        
+        tweetTextView.delegate = self
     }
-    
-    override func didReceiveMemoryWarning() {
-        super.didReceiveMemoryWarning()
-        // Dispose of any resources that can be recreated.
+}
+
+extension NewTweetViewController: UITextViewDelegate {
+    func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
+        let newText = (textView.text as NSString).replacingCharacters(in: range, with: text)
+        let numberOfChars = newText.characters.count
+        let limitText = numberOfChars <= limit
+        
+        if limitText {
+            let countDown = limit - numberOfChars
+            limitLabel.text = String(countDown)
+        }
+        
+        return limitText
     }
-    
-
-    /*
-    // MARK: - Navigation
-
-    // In a storyboard-based application, you will often want to do a little preparation before navigation
-    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-        // Get the new view controller using segue.destinationViewController.
-        // Pass the selected object to the new view controller.
-    }
-    */
-
 }

@@ -19,10 +19,19 @@ class LoginViewController: UIViewController {
     
     @IBAction func onLogin(_ sender: Any) {
         TwitterClient.sharedInstance.login(success: {
-            self.performSegue(withIdentifier: "loginSegue", sender: nil)
+            self.performSegue(withIdentifier: "hamburgerSegue", sender: nil)
         }) { (error: Error) in
             print(error.localizedDescription)
         }
     }
 
+    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
+        if segue.identifier == "hamburgerSegue" {
+            let hamburgerViewController = segue.destination as! HamburgerViewController
+            let storyboard = UIStoryboard(name: "Main", bundle: nil)
+            let menuViewController = storyboard.instantiateViewController(withIdentifier: "MenuViewController") as! MenuViewController
+            menuViewController.hamburgerViewController = hamburgerViewController
+            hamburgerViewController.menuViewController = menuViewController
+        }
+    }
 }

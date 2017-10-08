@@ -10,12 +10,42 @@ import UIKit
 import BDBOAuth1Manager
 import MBProgressHUD
 
+enum Channel {
+    case HOME
+    case PROFILE
+    case MENTIONS
+}
+
 class TweetsViewController: UIViewController {
 
     @IBOutlet weak var tweetsTableView: UITableView!
     var tweets = [Tweet]()
     var isMoreDataLoading = false
     var loadingMoreView: InfiniteScrollActivityView?
+    private var viewActionHandler: ((UIRefreshControl?, String?) -> ())!
+    private var profileUser: User!
+    
+    var channel: Channel! {
+        didSet(oldValue) {
+            switch channel {
+            case .HOME:
+                self.title = "Home"
+                viewActionHandler = getHomeTimeLine(refreshControl:lastId:)
+            case .PROFILE:
+                if profileUser != nil {
+                    self.title = profileUser.name
+                } else {
+                    self.title = User.currentUser?.name
+                }
+                viewActionHandler = getUserTimeLine(refreshControl:lastId:)
+            case .MENTIONS:
+                self.title = "Mentions"
+                viewActionHandler = getMentionsTimeLine(refreshControl:lastId:)
+            default:
+                break
+            }
+        }
+    }
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -43,6 +73,12 @@ class TweetsViewController: UIViewController {
         getTweets(refreshControl: nil, lastId: nil)
     }
     
+//    override func viewDidLayoutSubviews() {
+//        super.viewDidLayoutSubviews()
+//        tweetsTableView.contentInset.bottom = 50
+//        print("contentInset: \(tweetsTableView.contentInset)")
+//    }
+    
     @IBAction func onLogout(_ sender: Any) {
         TwitterClient.sharedInstance.logout()
     }
@@ -56,42 +92,74 @@ class TweetsViewController: UIViewController {
         if refreshControl == nil && !self.isMoreDataLoading {
             MBProgressHUD.showAdded(to: self.view, animated: true)
         }
-        
+        viewActionHandler(refreshControl, lastId)
+    }
+    
+    private func getHomeTimeLine(refreshControl: UIRefreshControl?, lastId: String?) {
         TwitterClient.sharedInstance.homeTimeLine(lastId: lastId, success: { (tweets: [Tweet]) in
-            if self.isMoreDataLoading {
-                self.isMoreDataLoading = false
-                self.loadingMoreView!.stopAnimating()
-            } else {
-                if let refreshControl = refreshControl {
-                    self.tweets = tweets
-                    refreshControl.endRefreshing()
-                } else {
-                    MBProgressHUD.hide(for: self.view, animated: true)
-                }
-            }
-            print("gettweets works")
-            if refreshControl == nil {
-                for tweet in tweets {
-                    if tweet.id != TwitterClient.lastTweetId {
-                        self.tweets.append(tweet)
-                    }
-                }
-            }
-            
-            self.tweetsTableView.reloadData()
+            self.onLoadingSuccess(tweets: tweets, refreshControl: refreshControl)
         }, failure: { (error: Error) in
-            print(error.localizedDescription)
-            if self.isMoreDataLoading {
-                self.isMoreDataLoading = false
-                self.loadingMoreView!.stopAnimating()
+            self.onLoadingFailure(error: error, refreshControl: refreshControl)
+        })
+    }
+    
+    private func getUserTimeLine(refreshControl: UIRefreshControl?, lastId: String?) {
+        var userSreenname: String!
+        if let user = profileUser {
+            userSreenname = user.screenName
+        }
+        
+        TwitterClient.sharedInstance.userTimeLine(lastId: lastId, screenname: userSreenname, success: { (tweets: [Tweet]) in
+            self.onLoadingSuccess(tweets: tweets, refreshControl: refreshControl)
+        }, failure: { (error: Error) in
+            self.onLoadingFailure(error: error, refreshControl: refreshControl)
+        })
+    }
+    
+    private func getMentionsTimeLine(refreshControl: UIRefreshControl?, lastId: String?) {
+        TwitterClient.sharedInstance.mentionsTimeLine(lastId: lastId, success: { (tweets: [Tweet]) in
+            self.onLoadingSuccess(tweets: tweets, refreshControl: refreshControl)
+        }, failure: { (error: Error) in
+            self.onLoadingFailure(error: error, refreshControl: refreshControl)
+        })
+    }
+    
+    private func onLoadingSuccess(tweets: [Tweet], refreshControl: UIRefreshControl?) {
+        if self.isMoreDataLoading {
+            self.isMoreDataLoading = false
+            self.loadingMoreView!.stopAnimating()
+        } else {
+            if let refreshControl = refreshControl {
+                self.tweets = tweets
+                refreshControl.endRefreshing()
             } else {
-                if let refreshControl = refreshControl {
-                    refreshControl.endRefreshing()
-                } else {
-                    MBProgressHUD.hide(for: self.view, animated: true)
+                MBProgressHUD.hide(for: self.view, animated: true)
+            }
+        }
+        print("gettweets works")
+        if refreshControl == nil {
+            for tweet in tweets {
+                if tweet.id != TwitterClient.lastTweetId {
+                    self.tweets.append(tweet)
                 }
             }
-        })
+        }
+        
+        self.tweetsTableView.reloadData()
+    }
+    
+    private func onLoadingFailure(error: Error, refreshControl: UIRefreshControl?) {
+        print(error.localizedDescription)
+        if self.isMoreDataLoading {
+            self.isMoreDataLoading = false
+            self.loadingMoreView!.stopAnimating()
+        } else {
+            if let refreshControl = refreshControl {
+                refreshControl.endRefreshing()
+            } else {
+                MBProgressHUD.hide(for: self.view, animated: true)
+            }
+        }
     }
     
     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
@@ -258,11 +326,73 @@ extension TweetsViewController: UITableViewDelegate, UITableViewDataSource {
             }
         }
         
+        cell.handleOnTap = {
+            if self.channel != .PROFILE {
+                let storyboard = UIStoryboard(name: "Main", bundle: nil)
+                let profileUserNC = storyboard.instantiateViewController(withIdentifier: "TweetsNavigationController") as! UINavigationController
+                let profileUserViewController = profileUserNC.topViewController as! TweetsViewController
+                profileUserViewController.profileUser = user
+                profileUserViewController.channel = .PROFILE
+                let backBarButton = UIBarButtonItem(title: "Back", style: .plain, target: self, action: #selector(self.popUserProfile))
+                profileUserViewController.navigationItem.leftBarButtonItem = backBarButton
+                self.navigationController?.pushViewController(profileUserViewController, animated: true)
+            }
+        }
+        
         return cell
+    }
+    
+    func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
+        if channel != .PROFILE {
+            return nil
+        }
+        
+        let headerView = Bundle.main.loadNibNamed("ProfileHeaderView", owner: nil, options: nil)?.first as! ProfileHeaderView
+        
+//        tableView.contentInset.top = 245
+    
+        var user = User.currentUser
+        if let profileUser = profileUser {
+            user = profileUser
+        }
+        
+        if let bannerUrl = user?.bannerUrl {
+            ImageUtil.loadImage(imageUrl: bannerUrl, loadImageView: headerView.bannerImageView)
+        }
+        
+        if let profileUrl = user?.profileUrl {
+            ImageUtil.loadImage(imageUrl: profileUrl, loadImageView: headerView.profileImageView)
+        }
+        
+        if let followersCount = user?.followersCount {
+            headerView.followersLabel.text = String(describing: followersCount)
+        }
+        
+        if let followingCount = user?.followingCount {
+            headerView.followingLabel.text = String(describing: followingCount)
+        }
+        
+        if let statusesCount = user?.statusesCount {
+            headerView.tweetsLabel.text = String(describing: statusesCount)
+        }
+        
+        return headerView
+    }
+    
+    func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
+        if channel != .PROFILE {
+            print("contentinset: \(tableView.contentInset)")
+            return CGFloat.leastNonzeroMagnitude
+        }
+        return 245
     }
     
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
+    }
+    
+    @objc func popUserProfile() {
+        navigationController?.popViewController(animated: true)
     }
 }
 

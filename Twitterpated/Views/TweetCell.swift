@@ -28,10 +28,18 @@ class TweetCell: UITableViewCell {
     var handleOnReply: (() -> ())?
     var handleOnReTweet: (() -> ())?
     var handleOnFavorite: (() -> ())?
+    var handleOnTap: (() -> ())?
     
     override func awakeFromNib() {
         super.awakeFromNib()
         // Initialization code
+        let profileImageTapGesture = UITapGestureRecognizer(target: self, action: #selector(onTap))
+        profileImageView.addGestureRecognizer(profileImageTapGesture)
+        profileImageView.isUserInteractionEnabled = true
+    }
+    
+    @objc func onTap() {
+        handleOnTap?()
     }
     
     @IBAction func onReply(_ sender: Any) {
@@ -54,4 +62,5 @@ class TweetCell: UITableViewCell {
         profileImageView.clipsToBounds = true
     }
 
+    
 }

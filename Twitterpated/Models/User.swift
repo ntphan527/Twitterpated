@@ -12,7 +12,12 @@ class User: NSObject {
     var name: String?
     var screenName: String?
     var profileUrl: URL?
+    var backgroundUrl: URL?
+    var bannerUrl: URL?
     var tagLine: String?
+    var followingCount: Int?
+    var followersCount: Int?
+    var statusesCount: Int?
     var dictionary: NSDictionary?
     
     init(dictionary: NSDictionary) {
@@ -23,7 +28,19 @@ class User: NSObject {
             let url = urlString.replacingOccurrences(of: "_normal", with: "")
             profileUrl = URL(string: url)
         }
+        
+        if let url = dictionary["profile_background_image_url_https"] as? String {
+            backgroundUrl = URL(string: url)
+        }
+        
+        if let url = dictionary["profile_banner_url"] as? String {
+            bannerUrl = URL(string: url)
+        }
+        
         tagLine = dictionary["description"] as? String
+        followersCount = dictionary["followers_count"] as? Int
+        followingCount = dictionary["friends_count"] as? Int
+        statusesCount = dictionary["statuses_count"] as? Int
     }
     
     static var userDidLogoutNotification = "UserDidLogout"

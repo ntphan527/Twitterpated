@@ -22,11 +22,15 @@ class ImageUtil: NSObject {
                 if imageResponse != nil {
                     loadImageView.alpha = 0.0
                     loadImageView.image = image
+                    loadImageView.contentMode = .scaleAspectFill
+                    loadImageView.clipsToBounds = true
                     UIView.animate(withDuration: 0.3, animations: { () -> Void in
                         loadImageView.alpha = 1.0
                     })
                 } else {
                     loadImageView.image = image
+                    loadImageView.contentMode = .scaleAspectFill
+                    loadImageView.clipsToBounds = true
                 }
         },
             failure: { (imageRequest, imageResponse, error) -> Void in

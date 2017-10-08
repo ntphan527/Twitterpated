@@ -79,6 +79,56 @@ class TwitterClient: BDBOAuth1SessionManager {
         })
     }
     
+    static var lastUserTweetId = ""
+    func userTimeLine(lastId: String?, screenname: String?, success: @escaping ([Tweet]) -> (), failure: @escaping (Error) -> ()) {
+        var params = ["exclude_replies": "false"]
+        if lastId != nil && TwitterClient.lastUserTweetId != lastId {
+            TwitterClient.lastUserTweetId = lastId!
+            params["max_id"] = lastId
+        }
+        
+        if screenname != nil {
+            params["screen_name"] = screenname
+        } else {
+            params["screen_name"] = User.currentUser?.screenName
+        }
+        
+        get("1.1/statuses/user_timeline.json", parameters: params, progress: nil, success: { (task: URLSessionDataTask, response: Any?) in
+            let dictionaries = response as! [NSDictionary]
+            for dictionary in dictionaries {
+                print(dictionary)
+                print()
+            }
+            
+            let tweets = Tweet.tweetsWithArray(dictionaries: dictionaries)
+            success(tweets)
+        }, failure: { (task: URLSessionDataTask?, error: Error) in
+            failure(error)
+        })
+    }
+    
+    static var lastMentionTweetId = ""
+    func mentionsTimeLine(lastId: String?, success: @escaping ([Tweet]) -> (), failure: @escaping (Error) -> ()) {
+        var params: [String: String] = [:]
+        if lastId != nil && TwitterClient.lastMentionTweetId != lastId {
+            TwitterClient.lastMentionTweetId = lastId!
+            params["max_id"] = lastId
+        }
+        
+        get("1.1/statuses/mentions_timeline.json", parameters: params, progress: nil, success: { (task: URLSessionDataTask, response: Any?) in
+            let dictionaries = response as! [NSDictionary]
+            for dictionary in dictionaries {
+                print(dictionary)
+                print()
+            }
+            
+            let tweets = Tweet.tweetsWithArray(dictionaries: dictionaries)
+            success(tweets)
+        }, failure: { (task: URLSessionDataTask?, error: Error) in
+            failure(error)
+        })
+    }
+    
     func currentAccount(success: @escaping (User) -> (), failure: @escaping (Error) -> ()) {
         get("1.1/account/verify_credentials.json", parameters: nil, progress: nil, success: { (task: URLSessionDataTask, response: Any?) in
             let userDictionary = response as! NSDictionary

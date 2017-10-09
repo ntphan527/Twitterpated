@@ -54,6 +54,9 @@ class TweetsViewController: UIViewController {
         tweetsTableView.estimatedRowHeight = 170
         tweetsTableView.rowHeight = UITableViewAutomaticDimension
         
+        tweetsTableView.estimatedSectionHeaderHeight = 245
+        tweetsTableView.sectionHeaderHeight = UITableViewAutomaticDimension
+        
         // add refresh control to table view
         let refreshControl = UIRefreshControl()
         refreshControl.addTarget(self, action: #selector(refreshControlAction(_:)), for: UIControlEvents.valueChanged)
@@ -376,6 +379,18 @@ extension TweetsViewController: UITableViewDelegate, UITableViewDataSource {
             headerView.tweetsLabel.text = String(describing: statusesCount)
         }
         
+        if let name = user?.name {
+            headerView.userName.text = name
+        }
+        
+        if let screenname = user?.screenName {
+            headerView.userScreenname.text = screenname
+        }
+        
+        if let tagline = user?.tagLine {
+            headerView.userDescription.text = tagline
+        }
+        
         return headerView
     }
     
@@ -384,7 +399,7 @@ extension TweetsViewController: UITableViewDelegate, UITableViewDataSource {
             print("contentinset: \(tableView.contentInset)")
             return CGFloat.leastNonzeroMagnitude
         }
-        return 245
+        return 260
     }
     
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {

@@ -12,11 +12,12 @@ class ProfileHeaderView: UIView {
 
     @IBOutlet weak var bannerImageView: UIImageView!
     @IBOutlet weak var profileImageView: UIImageView!
-    @IBOutlet weak var pageControl: UIPageControl!
-    @IBOutlet weak var scrollView: UIScrollView!
     @IBOutlet weak var tweetsLabel: UILabel!
     @IBOutlet weak var followingLabel: UILabel!
     @IBOutlet weak var followersLabel: UILabel!
+    @IBOutlet weak var userName: UILabel!
+    @IBOutlet weak var userScreenname: UILabel!
+    @IBOutlet weak var userDescription: UILabel!
     
     override func awakeFromNib() {
         profileImageView.layer.cornerRadius = 35
